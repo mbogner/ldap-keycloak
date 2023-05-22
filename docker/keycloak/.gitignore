@@ -1,0 +1,6 @@
+remote/
+local/
+*.pem
+*.p12
+*.jks
+download-keys.sh

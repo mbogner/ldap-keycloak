@@ -1,0 +1,81 @@
+version: "3.8"
+services:
+  openldap:
+    image: bitnami/openldap:2.5
+    hostname: openldap
+    container_name: openldap
+    ports:
+      - "127.0.0.1:1389:1389"
+      - "127.0.0.1:1636:1636"
+    environment:
+      LDAP_ROOT: dc=mbo,dc=dev
+      LDAP_ADMIN_USERNAME: admin
+      LDAP_ADMIN_PASSWORD: adminpassword
+      LDAP_USER_DC: users
+      LDAP_GROUP: readers
+      LDAP_USERS: example1
+      LDAP_PASSWORDS: password1
+    volumes:
+      - "openldap_data:/bitnami/openldap"
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    hostname: postgres
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./docker/postgres/init/:/docker-entrypoint-initdb.d/:ro
+      - postgres:/var/lib/postgresql/data/pgdata:rw
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_DB: db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: UTC
+      PGTZ: UTC
+      POSTGRES_MULTIPLE_DATABASES: keycloak
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U admin -d db'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  keycloak:
+    build: ./docker/keycloak
+    image: mbopm/keycloak
+    container_name: keycloak
+    hostname: keycloak
+    ports:
+      - "127.0.0.1:443:443"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./docker/keycloak/keystore.jks:/opt/keycloak/conf/server.keystore:ro
+      - ./docker/keycloak/themes:/opt/keycloak/themes:ro
+      - ./docker/keycloak/import:/opt/keycloak/data/import:ro
+    environment:
+      KEYCLOAK_ADMIN: manuel
+      KEYCLOAK_ADMIN_PASSWORD: Password!123
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: admin
+      KC_DB_PASSWORD: admin
+      PROXY_ADDRESS_FORWARDING: true
+      # replace hostnames below with your domain from the certificate in server.keystore
+      KC_HOSTNAME: kc.coffeebeans.at
+      KEYCLOAK_FRONTEND_URL: https://kc.coffeebeans.at
+    depends_on:
+      - postgres
+    extra_hosts:
+      - "kc.coffeebeans.at:127.0.0.1"
+    healthcheck:
+      test: curl -s -o /dev/null --fail https://kc.coffeebeans.at
+      interval: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  postgres:
+  openldap_data:

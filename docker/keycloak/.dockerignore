@@ -1,0 +1,7 @@
+local/
+remote/
+themes/
+*.pem
+*.p12
+*.jks
+.keep
